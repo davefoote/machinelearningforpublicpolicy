@@ -62,9 +62,33 @@ def discretize_float_cols(og_df, feature_df, fltcols, b):
     for column in fltcols:
         feature_df[column] = pd.cut(og_df[column], bins=b,
                                     labels=l)
+
+def make_agg_dict(gb_col, agg_col, agg_func='sum'):
+    '''
+    makes an key for every value in gb_col and sums the values in sum_col
+    to populate the value for its gb key
+    can handle sums, mins, maxes, means, and medians
+    output: dictionary that can be made into a dataseries
+    '''
+    
+    
         
 #clean data
-
+def fillna_pro(df, fillobs=False):
+    '''
+    fills cells with their mean. if cell dtype is int64 function will round mean
+    '''
+    nan_dict = {}
+    cols = df.columns[df.isna().any()].tolist()
+    
+    for col in cols:
+        if df[col].dtype == 'float64':
+            nan_dict[col] = df[col].mean()
+        if df[col].dtype == 'int64':
+            nan_dict[col] = int(df[col].mean())
+        if fillobs == True:
+            if df[col].dtype == 'object' or df[col].dtype == 'str':
+                nan_dict[col] = df[col].mode()
 #split data (temporal and x/y)
 
 #select your grid   
