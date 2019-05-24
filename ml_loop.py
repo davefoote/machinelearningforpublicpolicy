@@ -1,10 +1,68 @@
 import numpy as np
 import pandas as pd
-import mp_models as mod
+import model_analyzer as ma
 from sklearn.dummy import DummyClassifier
 
 #read data
+def read_csv_handledates(filepath, date_cols):
+    '''
+    input: filepath to a csv, list of date columns to parse
+    output: a pandas dataframe with correctly typed date columns
+    '''
+    return pd.read_csv(filepath, parse_dates=date_cols)
 
+#for creating an outcome variable and features
+def calculate_duration(df, beginning_col, ending_col, new_col):
+    '''
+    input: a dataframe with two date columns you're interested in the time between
+    output: that dataframe now has a column representing the time between them
+    '''
+    df[new_col] = df[ending_col] - df[beginning_col]
+
+def compare_tdelta_generate_binary(df, col_to_compare, threshold, new_col):
+    '''
+    inputs: a dataseries with time deltas, a number (threshold) to compare
+    members of that data series to and a name for the new column with the
+    binary values
+    output: that dataseries now has a column for the binary values
+    '''
+    df[new_col] = np.where(df[col_to_compare]<= pd.Timedelta(threshold), 1, 0)
+
+def id_potential_features(df):
+    '''
+    input: dataframe
+    output: list of string columns and float columns that can become features
+    '''
+    str_cols = [column for column in df.columns if (df[column].dtype=='O')
+                   and (len(df[column].unique())<=20)]
+    flt_cols = [column for column in df.columns if
+                (df[column].dtype=='float64')]
+
+    return str_cols, flt_cols
+
+def strings_to_dummies(df, strcols):
+    '''
+    turn the string columns we identified into dummies and generate a new
+    df with these dummies to act as features
+    '''
+    features = pd.get_dummies(df[strcols], dummy_na=True,
+                              columns=strcols, drop_first=True)
+    return features
+
+def discretize_float_cols(og_df, feature_df, fltcols, b):
+    '''
+    make bins 3 or 5 please
+    adds discretized float cols to a features column
+    fltcols are columns from og_df to be discretized and added to feature_df
+    '''
+    if b == 3:
+        l = ['low', 'medium', 'high']
+    if b == 5:
+        l = ['very low', 'low', 'medium', 'high', 'very high']
+    for column in fltcols:
+        feature_df[column] = pd.cut(og_df[column], bins=b,
+                                    labels=l)
+        
 #clean data
 
 #split data (temporal and x/y)
@@ -102,7 +160,7 @@ def model_analyzer(clfs, grid, x_train, y_train, x_test, y_test):
         for p in ParameterGrid(parameter_values):
             try:
                 name = klass + str(p)
-                m = mod.ClassifierAnalyzer(model, p, .2, x_train, y_train,
+                m = ma.ClassifierAnalyzer(model, p, .2, x_train, y_train,
                                           x_test, y_test)
                 result_df.concat(pd.DataFrame(vars(m)))
                 predictions_dict[m] = m.predictions

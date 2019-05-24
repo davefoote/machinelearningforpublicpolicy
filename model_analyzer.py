@@ -22,7 +22,7 @@ class ClassifierAnalyzer:
     class is intended to store all metrics of model applied to data in one place
     '''
     identifier = 0
-    def __init__(self, model, parameters, threshold, x_train, y_train, x_test,
+    def __init__(self, model, parameters, name, threshold, x_train, y_train, x_test,
                  y_test):
         self.model = model.set_params(**parameters)
         self.scores = classify(x_train, y_train, x_test, self.model)
@@ -32,7 +32,7 @@ class ClassifierAnalyzer:
         self.precision = precision(self.truth, self.predictions)
         self.recall = recall(self.truth, self.predictions)
         self.f1 = 2 * (self.precision * self.recall) / (self.precision + self.recall)
-        self.id = identifier
+        self.name = None
         ClassifierAnalyzer.identifier += 1
 
     def __repr__(self):
@@ -102,7 +102,7 @@ def compare_to_threshold(score, threshold):
     that represents threshold% of population, then compares each score to that
     adjusted threshold
     '''
-    if score > threshold:
+    if score > (1 - threshold):
         return 1
     else:
         return 0
