@@ -49,46 +49,32 @@ def strings_to_dummies(df, strcols):
                               columns=strcols, drop_first=True)
     return features
 
-def discretize_float_cols(og_df, feature_df, fltcols, b):
+def add_discretized_float_cols(og_df, feature_df, fltcols):
     '''
     make bins 3 or 5 please
     adds discretized float cols to a features column
     fltcols are columns from og_df to be discretized and added to feature_df
     '''
-    if b == 3:
-        l = ['low', 'medium', 'high']
-    if b == 5:
-        l = ['very low', 'low', 'medium', 'high', 'very high']
+    l = ['low', 'medium low', 'medium high', 'high']
     for column in fltcols:
-        feature_df[column] = pd.cut(og_df[column], bins=b,
+        feature_df[column] = pd.qcut(og_df[column], q=[0, .25, .5, .75, 1.],
                                     labels=l)
 
-def make_agg_dict(gb_col, agg_col, agg_func='sum'):
-    '''
-    makes an key for every value in gb_col and sums the values in sum_col
-    to populate the value for its gb key
-    can handle sums, mins, maxes, means, and medians
-    output: dictionary that can be made into a dataseries
-    '''
-    
-    
-        
 #clean data
-def fillna_pro(df, fillobs=False):
+def fillna_modal(df, col_list):
     '''
-    fills cells with their mean. if cell dtype is int64 function will round mean
+    fills nans in col_list with the column's mode
     '''
-    nan_dict = {}
-    cols = df.columns[df.isna().any()].tolist()
-    
-    for col in cols:
-        if df[col].dtype == 'float64':
-            nan_dict[col] = df[col].mean()
-        if df[col].dtype == 'int64':
-            nan_dict[col] = int(df[col].mean())
-        if fillobs == True:
-            if df[col].dtype == 'object' or df[col].dtype == 'str':
-                nan_dict[col] = df[col].mode()
+    for x in col_list:
+        df[x].fillna(df[x].value_counts().index[0], inplace=True)
+
+def fillzero_mean(df, col):
+    '''
+    needs a int or float dataseries where nans have already been turned to 0's
+    '''
+    imputation = df[col].notnull().mean()
+    df[col].replace(0, imputation, inplace = True)
+
 #split data (temporal and x/y)
 
 #select your grid   
@@ -166,7 +152,7 @@ def define_clfs_params(grid_size):
         return 0, 0
 
 #run and analyze models
-def model_analyzer(clfs, grid, x_train, y_train, x_test, y_test):
+def model_analyzer(clfs, grid, plots, x_train, y_train, x_test, y_test):
     '''
     inputs: clfs dict of default models
             selected grid
@@ -188,6 +174,8 @@ def model_analyzer(clfs, grid, x_train, y_train, x_test, y_test):
                                           x_test, y_test)
                 result_df.concat(pd.DataFrame(vars(m)))
                 predictions_dict[m] = m.predictions
+                m.plot_precision_recall('save', name + 'pr')
+                m.plot_roc('save', name + 'roc')
 
             except IndexError as e:
                     print('Error:',e)
