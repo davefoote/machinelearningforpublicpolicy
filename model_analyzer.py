@@ -25,10 +25,11 @@ class ClassifierAnalyzer:
     def __init__(self, model, parameters, name, threshold, x_train, y_train, x_test,
                  y_test):
         self.params = parameters
+        self.t = threshold
         self.model = model.set_params(**parameters)
         self.scores = classify(x_train, y_train, x_test, self.model)
         self.truth = y_test
-        self.predictions = predict(self.scores, threshold)
+        self.predictions = predict(self.scores, self.t)
         self.accuracy = accuracy(self.truth, self.predictions)
         self.precision = precision(self.truth, self.predictions)
         self.recall = recall(self.truth, self.predictions)

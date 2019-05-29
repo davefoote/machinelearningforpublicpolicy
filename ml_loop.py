@@ -202,7 +202,7 @@ def define_clfs_params(grid_size):
         return 0, 0
 
 #run and analyze models
-def model_analyzer(clfs, grid, plots, x_train, y_train, x_test, y_test):
+def model_analyzer(clfs, grid, plots, thresholds, x_train, y_train, x_test, y_test):
     '''
     inputs: clfs dict of default models
             selected grid
@@ -210,31 +210,32 @@ def model_analyzer(clfs, grid, plots, x_train, y_train, x_test, y_test):
             split training and testing data
     outputs: df of all models and their predictions/metrics
              df of all predictions with model id as column name for later use
+    filter placed on plotting to prevent plotting of excessive plots
     '''
 
     stats_dics = []
-    predictions_dict = {}
+    models = []
 
     for klass, model in clfs.items():
         parameter_values = grid[klass]
         for p in ParameterGrid(parameter_values):
             try:
                 name = klass + str(p)
-                print(name)
-                m = ma.ClassifierAnalyzer(model, p, name, .2, x_train, y_train,
-                                          x_test, y_test)
-                stats_dics.append(vars(m))
-                predictions_dict[m.name] = m.predictions
-                if plots == 'show':
-                    m.plot_precision_recall(False, True, name + 'pr' + '.png')
-                    m.plot_roc(False, True, name + 'roc')
-                if plots == 'save':
-                    m.plot_precision_recall(True, False, name + 'pr' + '.png')
-                    m.plot_roc(True, False, name + 'pr')
+                for thresh in thresholds:
+                    m = ma.ClassifierAnalyzer(model, p, name, thresh, x_train, y_train,
+                                              x_test, y_test)
+                    stats_dics.append(vars(m))
+                    predictions_dict[m.name] = m.predictions
+                    if m.precision >= .60
+                        if plots == 'show':
+                            m.plot_precision_recall(False, True, name + 'pr' + '.png')
+                            m.plot_roc(False, True, name + 'roc')
+                        if plots == 'save':
+                            m.plot_precision_recall(True, False, name + 'pr' + '.png')
+                            m.plot_roc(True, False, name + 'pr')
 
             except IndexError as e:
                     print('Error:',e)
                     continue
 
     return stats_dics, predictions_dict
-
