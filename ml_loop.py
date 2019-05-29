@@ -1,7 +1,18 @@
 import numpy as np
 import pandas as pd
+import datetime
+import seaborn as sns
 import model_analyzer as ma
 from sklearn.dummy import DummyClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import (BaggingClassifier, AdaBoostClassifier,
+                              ExtraTreesClassifier, GradientBoostingClassifier,
+                             RandomForestClassifier)
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression, SGDClassifier
+from sklearn.svm import SVC
+from sklearn.model_selection import ParameterGrid
 
 #read data
 def read_csv_handledates(filepath, date_cols):
@@ -10,6 +21,9 @@ def read_csv_handledates(filepath, date_cols):
     output: a pandas dataframe with correctly typed date columns
     '''
     return pd.read_csv(filepath, parse_dates=date_cols)
+
+#explore the data
+
 
 #for creating an outcome variable and features
 def calculate_duration(df, beginning_col, ending_col, new_col):
@@ -57,7 +71,9 @@ def add_discretized_float_cols(og_df, feature_df, fltcols):
     '''
     l = ['low', 'medium low', 'medium high', 'high']
     for column in fltcols:
-        feature_df[column] = pd.qcut(og_df[column], q=[0, .25, .5, .75, 1.],
+        new_col = column + '_d'
+        feature_df[column] = og_df[column]
+        feature_df[new_col] = pd.qcut(og_df[column], q=[0, .25, .5, .75, 1.],
                                     labels=l)
 
 #clean data
@@ -76,6 +92,40 @@ def fillzero_mean(df, col):
     df[col].replace(0, imputation, inplace = True)
 
 #split data (temporal and x/y)
+def temp_holdout(df, date_col, tt_period, wait_period):
+    '''
+    big period in months, wait period in days
+    wait period is holdout period after train or test period
+    '''
+    period = pd.DateOffset(months=tt_period)
+    holdout = pd.DateOffset(days=wait_period)
+    first = df[date_col].min()
+    last = df[date_col].max()
+    next_edge = first + period
+    rv = []
+
+    while next_edge < last:
+        rv.append(df[(df[date_col] >= first) & (df[date_col] < next_edge)])
+        first = next_edge + holdout
+        next_edge = next_edge + period + holdout
+
+    return rv
+
+def seperate_ids_feats_ys(periods):
+    '''
+    takes a list of periods from temp_holdout() and returns a list of lists of
+    each period's ids, features, and ys
+    '''
+    rv = []
+
+    for x in periods:
+        rv.append([x.iloc[:, [-2, -3]], x.iloc[:, :-3], x.iloc[:, -1]])
+        
+    for x in rv:
+        for df in x:
+            print(df.shape)
+
+    return rv
 
 #select your grid   
 def define_clfs_params(grid_size):
@@ -89,19 +139,19 @@ def define_clfs_params(grid_size):
     clfs = {'RF': RandomForestClassifier(n_estimators=50, n_jobs=-1),
         'ET': ExtraTreesClassifier(n_estimators=10, n_jobs=-1, criterion='entropy'),
         'AB': AdaBoostClassifier(DecisionTreeClassifier(max_depth=1), algorithm="SAMME", n_estimators=200),
-        'LR': LogisticRegression(penalty='l1', C=1e5),
-        'SVM': svm.SVC(kernel='linear', probability=True, random_state=0),
+        'LR': LogisticRegression(penalty='l2', C=1e5, solver='lbfgs'),
+        'SVM': SVC(kernel='linear', probability=True, random_state=0),
         'GB': GradientBoostingClassifier(learning_rate=0.05, subsample=0.5, max_depth=6, n_estimators=10),
         'NB': GaussianNB(),
         'DT': DecisionTreeClassifier(),
-        'SGD': SGDClassifier(loss="hinge", penalty="l2"),
+        'SGD': SGDClassifier(loss="log", penalty="l2"),
         'KNN': KNeighborsClassifier(n_neighbors=3), 
         'BAG': BaggingClassifier(DecisionTreeClassifier(), max_samples= 0.5, n_estimators = 20) 
             }
 
     large_grid = { 
     'RF':{'n_estimators': [1,10,100,1000,10000], 'max_depth': [1,5,10,20,50,100], 'max_features': ['sqrt','log2'],'min_samples_split': [2,5,10], 'n_jobs': [-1]},
-    'LR': { 'penalty': ['l1','l2'], 'C': [0.00001,0.0001,0.001,0.01,0.1,1,10]},
+    'LR': { 'penalty': ['l1','l2'], 'C': [0.00001,0.0001,0.001,0.01,0.1,1,10], 'solver': ['liblinear']},
     'SGD': { 'loss': ['hinge','log','perceptron'], 'penalty': ['l2','l1','elasticnet']},
     'ET': { 'n_estimators': [1,10,100,1000,10000], 'criterion' : ['gini', 'entropy'] ,'max_depth': [1,5,10,20,50,100], 'max_features': ['sqrt','log2'],'min_samples_split': [2,5,10], 'n_jobs': [-1]},
     'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [1,10,100,1000,10000]},
@@ -115,13 +165,13 @@ def define_clfs_params(grid_size):
     
     small_grid = { 
     'RF':{'n_estimators': [10,100], 'max_depth': [5,50], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
-    'LR': { 'penalty': ['l1','l2'], 'C': [0.00001,0.001,0.1,1,10]},
+    'LR': { 'penalty': ['l1','l2'], 'C': [0.001,0.1,1], 'solver': ['saga', 'liblinear']},
     'SGD': { 'loss': ['hinge','log','perceptron'], 'penalty': ['l2','l1','elasticnet']},
     'ET': { 'n_estimators': [10,100], 'criterion' : ['gini', 'entropy'] ,'max_depth': [5,50], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
     'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [1,10,100,1000,10000]},
     'GB': {'n_estimators': [10,100], 'learning_rate' : [0.1,0.5],'subsample' : [0.5,1.0], 'max_depth': [5,50]},
     'NB' : {},
-    'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1,5,10,20,50,100],'min_samples_split': [2,5,10]},
+    'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1, 5, 10, None],'min_samples_split': [2,5,10]},
     'SVM' :{'C' :[0.1],'kernel':['linear']},
     'KNN' :{'n_neighbors': [1,5,10,25,50,100],'weights': ['uniform','distance'],'algorithm': ['auto','ball_tree','kd_tree']},
     'BAG': {'n_estimators' : [5,10], 'max_samples' : [.25, .5] } 
@@ -129,7 +179,7 @@ def define_clfs_params(grid_size):
     
     test_grid = { 
     'RF':{'n_estimators': [1], 'max_depth': [1], 'max_features': ['sqrt'],'min_samples_split': [10]},
-    'LR': { 'penalty': ['l1'], 'C': [0.01]},
+    'LR': { 'penalty': ['l2'], 'C': [0.01]},
     'SGD': { 'loss': ['perceptron'], 'penalty': ['l2']},
     'ET': { 'n_estimators': [1], 'criterion' : ['gini'] ,'max_depth': [1], 'max_features': ['sqrt'],'min_samples_split': [10]},
     'AB': { 'algorithm': ['SAMME'], 'n_estimators': [1]},
@@ -156,13 +206,13 @@ def model_analyzer(clfs, grid, plots, x_train, y_train, x_test, y_test):
     '''
     inputs: clfs dict of default models
             selected grid
-            plots ('show' to see all plots, 'save' to see and save all plots)
+            plots ('show' to see all plots, 'save' to see save all plots)
             split training and testing data
     outputs: df of all models and their predictions/metrics
              df of all predictions with model id as column name for later use
     '''
 
-    stats_df = pd.DataFrame()
+    stats_dics = []
     predictions_dict = {}
 
     for klass, model in clfs.items():
@@ -170,15 +220,21 @@ def model_analyzer(clfs, grid, plots, x_train, y_train, x_test, y_test):
         for p in ParameterGrid(parameter_values):
             try:
                 name = klass + str(p)
-                m = ma.ClassifierAnalyzer(model, p, .2, x_train, y_train,
+                print(name)
+                m = ma.ClassifierAnalyzer(model, p, name, .2, x_train, y_train,
                                           x_test, y_test)
-                result_df.concat(pd.DataFrame(vars(m)))
-                predictions_dict[m] = m.predictions
-                m.plot_precision_recall('save', name + 'pr')
-                m.plot_roc('save', name + 'roc')
+                stats_dics.append(vars(m))
+                predictions_dict[m.name] = m.predictions
+                if plots == 'show':
+                    m.plot_precision_recall(False, True, name + 'pr' + '.png')
+                    m.plot_roc(False, True, name + 'roc')
+                if plots == 'save':
+                    m.plot_precision_recall(True, False, name + 'pr' + '.png')
+                    m.plot_roc(True, False, name + 'pr')
 
             except IndexError as e:
                     print('Error:',e)
                     continue
 
-    return stats_df, pd.DataFrame(predictions_dict)
+    return stats_dics, predictions_dict
+

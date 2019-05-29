@@ -21,7 +21,7 @@ class ClassifierAnalyzer:
     CA takes a model and a set of parameters from
     class is intended to store all metrics of model applied to data in one place
     '''
-    identifier = 0
+    identifier_counter = 0
     def __init__(self, model, parameters, name, threshold, x_train, y_train, x_test,
                  y_test):
         self.params = parameters
@@ -32,14 +32,14 @@ class ClassifierAnalyzer:
         self.accuracy = accuracy(self.truth, self.predictions)
         self.precision = precision(self.truth, self.predictions)
         self.recall = recall(self.truth, self.predictions)
-        self.f1 = 2 * (self.precision * self.recall) / (self.precision + self.recall)
-        self.name = None
-        ClassifierAnalyzer.identifier += 1
+        self.f1 = (self.accuracy * self.precision * 2) / (self.accuracy + self.precision)
+        self.name = ClassifierAnalyzer.identifier_counter
+        ClassifierAnalyzer.identifier_counter += 1
 
     def __repr__(self):
         return str(self.id)
 
-    def plot_precision_recall(self, save, name):
+    def plot_precision_recall(self, save, show, name):
         precision_curve, recall_curve, pr_thresholds = precision_recall_curve(
         self.truth, self.scores)
         precision_curve = precision_curve[:-1]
@@ -65,10 +65,13 @@ class ClassifierAnalyzer:
 
         plt.title(name)
         if save == True:
-            plt.savefig(name)
-        plt.show()
+            plt.savefig('plots/' + name + '.png')
+            plt.close()
+        if show == True:
+            plt.show()
+            plt.close()
 
-    def plot_roc(self, save, name):
+    def plot_roc(self, save, show, name):
         fpr, tpr, thresholds = roc_curve(self.truth, self.scores)
         roc_auc = auc(fpr, tpr)
         plt.clf()
@@ -81,16 +84,22 @@ class ClassifierAnalyzer:
         plt.title(name)
         plt.legend(loc="lower right")
         if save == True:
-            plt.savefig(name)
-        plt.show()
+            plt.savefig('plots/' + name + '.png')
+            plt.close()
+        if show == True:
+            plt.show()
+            plt.close()
 
 def classify(x_train, y_train, x_test, classifier):
     '''
-    from rachel's pipeline_library
+    make classification predictions on a test set given training data
     '''
     model = classifier
+
     model.fit(x_train, y_train)
-    if str(classifier).split('(')[0] == 'LinearSVC':
+
+    if str(classifier).split('(')[0] == 'LinearSVC' or \
+        str(classifier).split('(')[0] == 'SGDClassifier':
         predicted_scores = model.decision_function(x_test)
     else:
         predicted_scores = model.predict_proba(x_test)[:, 1]
