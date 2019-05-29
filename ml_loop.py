@@ -92,24 +92,31 @@ def fillzero_mean(df, col):
     df[col].replace(0, imputation, inplace = True)
 
 #split data (temporal and x/y)
-def temp_holdout(df, date_col, tt_period, wait_period):
+def temp_holdout(df, date_col, rolling_window, holdout):
     '''
-    big period in months, wait period in days
-    wait period is holdout period after train or test period
+    rolling window in months, holdout in days
+    returns list of training and testing sets
     '''
-    period = pd.DateOffset(months=tt_period)
-    holdout = pd.DateOffset(days=wait_period)
+    period = pd.DateOffset(months=rolling_window)
+    holdout = pd.DateOffset(days=holdout)
+    
     first = df[date_col].min()
+    testing_begins = first + period
     last = df[date_col].max()
     next_edge = first + period
-    rv = []
+    next_edge -= holdout
+    trains = []
+    tests = []
 
-    while next_edge < last:
-        rv.append(df[(df[date_col] >= first) & (df[date_col] < next_edge)])
-        first = next_edge + holdout
-        next_edge = next_edge + period + holdout
+    while (next_edge + holdout) < last:
+        trains.append(df[(df[date_col] >= first) & (df[date_col] < next_edge)])
+        tests.append(df[(df[date_col] >= testing_begins) & (df[date_col] < (testing_begins + period))])
+        next_edge = next_edge + period
+        testing_begins = testing_begins + period
+        
+        
 
-    return rv
+    return trains, tests
 
 def seperate_ids_feats_ys(periods):
     '''
@@ -169,7 +176,7 @@ def define_clfs_params(grid_size):
     'SGD': { 'loss': ['hinge','log','perceptron'], 'penalty': ['l2','l1','elasticnet']},
     'ET': { 'n_estimators': [10,100], 'criterion' : ['gini', 'entropy'] ,'max_depth': [5,50], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
     'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [1,10,100,1000,10000]},
-    'GB': {'n_estimators': [10,100], 'learning_rate' : [0.1,0.5],'subsample' : [0.5,1.0], 'max_depth': [5,50]},
+    'GB': {'n_estimators': [10,100], 'learning_rate' : [0.5],'subsample' : [0.5,1.0], 'max_depth': [5,50]},
     'NB' : {},
     'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1, 5, 10, None],'min_samples_split': [2,5,10]},
     'SVM' :{'C' :[0.1],'kernel':['linear']},
@@ -202,11 +209,13 @@ def define_clfs_params(grid_size):
         return 0, 0
 
 #run and analyze models
-def model_analyzer(clfs, grid, plots, thresholds, x_train, y_train, x_test, y_test):
+def model_analyzer(clfs, grid, plots, prec_limit, thresholds, x_train, y_train, x_test, y_test):
     '''
     inputs: clfs dict of default models
             selected grid
             plots ('show' to see all plots, 'save' to see save all plots)
+            prec_limit - set a precision limit models must surpass to be graphed
+            thresholds - list of thresholds to iterate through
             split training and testing data
     outputs: df of all models and their predictions/metrics
              df of all predictions with model id as column name for later use
@@ -219,23 +228,25 @@ def model_analyzer(clfs, grid, plots, thresholds, x_train, y_train, x_test, y_te
     for klass, model in clfs.items():
         parameter_values = grid[klass]
         for p in ParameterGrid(parameter_values):
+            counter = 1
             try:
                 name = klass + str(p)
                 for thresh in thresholds:
                     m = ma.ClassifierAnalyzer(model, p, name, thresh, x_train, y_train,
                                               x_test, y_test)
                     stats_dics.append(vars(m))
-                    models.append(m)
-                    if m.precision >= .60
+                    if m.precision >= prec_limit and counter == 1:
                         if plots == 'show':
                             m.plot_precision_recall(False, True, name + 'pr' + '.png')
                             m.plot_roc(False, True, name + 'roc')
                         if plots == 'save':
                             m.plot_precision_recall(True, False, name + 'pr' + '.png')
                             m.plot_roc(True, False, name + 'pr')
+                        counter += 1
+                    models.append(m)
 
             except IndexError as e:
                     print('Error:',e)
                     continue
 
-    return stats_dics, predictions_dict
+    return stats_dics, models

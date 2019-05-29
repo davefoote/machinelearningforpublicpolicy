@@ -35,10 +35,11 @@ class ClassifierAnalyzer:
         self.recall = recall(self.truth, self.predictions)
         self.f1 = (self.accuracy * self.precision * 2) / (self.accuracy + self.precision)
         self.name = ClassifierAnalyzer.identifier_counter
+        self.roc_auc = None
         ClassifierAnalyzer.identifier_counter += 1
 
     def __repr__(self):
-        return str(self.id)
+        return str(self.name)
 
     def plot_precision_recall(self, save, show, name):
         precision_curve, recall_curve, pr_thresholds = precision_recall_curve(
@@ -55,9 +56,9 @@ class ClassifierAnalyzer:
 
         plt.clf()
         fig, ax1 = plt.subplots()
-        ax1.plot(pct_above_per_thresh, precision_curve, 'b')
+        ax1.plot(pct_above_per_thresh, precision_curve, 'g')
         ax1.set_xlabel('percent of population')
-        ax1.set_ylabel('precision', color='b')
+        ax1.set_ylabel('precision', color='g')
         ax2 = ax1.twinx()
         ax2.plot(pct_above_per_thresh, recall_curve, 'r')
         ax2.set_ylabel('recall', color='r')
@@ -74,12 +75,12 @@ class ClassifierAnalyzer:
 
     def plot_roc(self, save, show, name):
         fpr, tpr, thresholds = roc_curve(self.truth, self.scores)
-        roc_auc = auc(fpr, tpr)
+        self.roc_auc = auc(fpr, tpr)
         plt.clf()
-        plt.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc)
-        plt.plot([0, 1], [0, 1], 'k--')
-        plt.xlim([0.0, 1.05])
-        plt.ylim([0.0, 1.05])
+        plt.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % self.roc_auc)
+        plt.plot([0, 1], [0, 1], 'r--')
+        plt.xlim([0.0, 1])
+        plt.ylim([0.0, 1])
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
         plt.title(name)
