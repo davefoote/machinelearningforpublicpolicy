@@ -225,7 +225,7 @@ def model_analyzer(clfs, grid, plots, thresholds, x_train, y_train, x_test, y_te
                     m = ma.ClassifierAnalyzer(model, p, name, thresh, x_train, y_train,
                                               x_test, y_test)
                     stats_dics.append(vars(m))
-                    predictions_dict[m.name] = m.predictions
+                    models.append(m)
                     if m.precision >= .60
                         if plots == 'show':
                             m.plot_precision_recall(False, True, name + 'pr' + '.png')
