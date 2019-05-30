@@ -30,6 +30,7 @@ class ClassifierAnalyzer:
         self.scores = classify(x_train, y_train, x_test, self.model)
         self.truth = y_test
         self.predictions = predict(self.scores, self.t)
+        self.predicted_for_pct = sum(self.predictions)/len(self.predictions)
         self.accuracy = accuracy(self.truth, self.predictions)
         self.precision = precision(self.truth, self.predictions)
         self.recall = recall(self.truth, self.predictions)
@@ -123,3 +124,15 @@ def predict(scores, threshold):
     l = list(stats.rankdata(scores, 'average')/len(scores))
 
     return [compare_to_threshold(x, threshold) for x in l]
+
+def find_best_models(metrics_df, models, metrics_to_use):
+    '''
+    takes in a df with metrics on models in a list and that list of models
+    and returns a set of models consisting of the top five performers in terms
+    of precision, recall, and f1
+    '''
+    rv = []
+    
+    for x in metrics_to_use:
+        rv.extend(list(metrics_df.sort_values(x, ascending=False).head()['name'].values))
+    return set(rv)

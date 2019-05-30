@@ -89,6 +89,7 @@ def fillzero_mean(df, col):
     needs a int or float dataseries where nans have already been turned to 0's
     '''
     imputation = df[col].notnull().mean()
+    df[col].fillna(imputation, inplace=True)
     df[col].replace(0, imputation, inplace = True)
 
 #split data (temporal and x/y)
@@ -161,8 +162,8 @@ def define_clfs_params(grid_size):
     'LR': { 'penalty': ['l1','l2'], 'C': [0.00001,0.0001,0.001,0.01,0.1,1,10], 'solver': ['liblinear']},
     'SGD': { 'loss': ['hinge','log','perceptron'], 'penalty': ['l2','l1','elasticnet']},
     'ET': { 'n_estimators': [1,10,100,1000,10000], 'criterion' : ['gini', 'entropy'] ,'max_depth': [1,5,10,20,50,100], 'max_features': ['sqrt','log2'],'min_samples_split': [2,5,10], 'n_jobs': [-1]},
-    'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [1,10,100,1000,10000]},
-    'GB': {'n_estimators': [1,10,100,1000,10000], 'learning_rate' : [0.001,0.01,0.05,0.1,0.5],'subsample' : [0.1,0.5,1.0], 'max_depth': [1,3,5,10,20,50,100]},
+    'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [1,10,100,1000]},
+    'GB': {'n_estimators': [1,10,100,1000,10000], 'learning_rate' : [0.01,0.1,0.5],'subsample' : [0.1,0.5,1.0], 'max_depth': [1,3,5,10,20,50,100]},
     'NB' : {},
     'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1,5,10,20,50,100],'min_samples_split': [2,5,10]},
     'SVM' :{'C' :[0.00001,0.0001,0.001,0.01,0.1,1,10],'kernel':['linear']},
@@ -172,15 +173,15 @@ def define_clfs_params(grid_size):
     
     small_grid = { 
     'RF':{'n_estimators': [10,100], 'max_depth': [5,50], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
-    'LR': { 'penalty': ['l1','l2'], 'C': [0.001,0.1,1], 'solver': ['saga', 'liblinear']},
-    'SGD': { 'loss': ['hinge','log','perceptron'], 'penalty': ['l2','l1','elasticnet']},
-    'ET': { 'n_estimators': [10,100], 'criterion' : ['gini', 'entropy'] ,'max_depth': [5,50], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
-    'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [1,10,100,1000,10000]},
-    'GB': {'n_estimators': [10,100], 'learning_rate' : [0.5],'subsample' : [0.5,1.0], 'max_depth': [5,50]},
+    'LR': { 'penalty': ['l1','l2'], 'C': [0.001,0.1,1], 'solver': ['liblinear']},
+    'SGD': { 'loss': ['log','perceptron'], 'penalty': ['l2','l1']},
+    'ET': { 'n_estimators': [10,100], 'criterion' : ['gini', 'entropy'] ,'max_depth': [5], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
+    'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [10,100,500]},
+    'GB': {'n_estimators': [10,100], 'learning_rate' : [0.5],'subsample' : [0.5,1.0], 'max_depth': [5]},
     'NB' : {},
-    'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1, 5, 10, None],'min_samples_split': [2,5,10]},
+    'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1, 5, None],'min_samples_split': [2,5,10]},
     'SVM' :{'C' :[0.1],'kernel':['linear']},
-    'KNN' :{'n_neighbors': [1,5,10,25,50,100],'weights': ['uniform','distance'],'algorithm': ['auto','ball_tree','kd_tree']},
+    'KNN' :{'n_neighbors': [10,50,100],'weights': ['uniform','distance'],'algorithm': ['auto', 'kd_tree']},
     'BAG': {'n_estimators' : [5,10], 'max_samples' : [.25, .5] } 
            }
     
@@ -234,7 +235,9 @@ def model_analyzer(clfs, grid, plots, prec_limit, thresholds, x_train, y_train, 
                 for thresh in thresholds:
                     m = ma.ClassifierAnalyzer(model, p, name, thresh, x_train, y_train,
                                               x_test, y_test)
-                    stats_dics.append(vars(m))
+                    stats = vars(m)
+                    stats['threshold'] = thresh
+                    stats_dics.append(stats)
                     if m.precision >= prec_limit and counter == 1:
                         if plots == 'show':
                             m.plot_precision_recall(False, True, name + 'pr' + '.png')
@@ -243,6 +246,7 @@ def model_analyzer(clfs, grid, plots, prec_limit, thresholds, x_train, y_train, 
                             m.plot_precision_recall(True, False, name + 'pr' + '.png')
                             m.plot_roc(True, False, name + 'pr')
                         counter += 1
+                    print(model.model)
                     models.append(m)
 
             except IndexError as e:

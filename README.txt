@@ -1,7 +1,18 @@
 HW5 - Dave Foote
 
-the Walk Through Jupyter Notebook shows all of the stuff you guys asked for that doesn't necessarily come up in the prompt for the write up.
+In the walk_through Jupyter Notebook you will find the work I did, the plots I
+created, and the ultimate results of my HW5 pipeline, along with comments.
 
-model_analyzer.py contains the code that calculates my metrics and prints my graphs
+In ml_loop I have placed the functions and helper functions associated with
+allowing me to loop through and evaluate different models with different
+parameters on different temporal sets, including the data cleaning and temporal
+holdouts needed to do so.
 
-ml_loop.py contains the functions necessary to implement the pipeline, which I can't tell if it needs to be a script or if I can just show the pipeline working in the walk through.
+In model_analyzer you will find a class I created to store and analyze models
+with instances of ModelAnalyzer holding data for a model defined at certain
+parameters and hyper parameters and the metrics calculated for that instance.
+
+ml_loop provides code to generate a list of model_analyzer objects and
+model_analyzer provides the code to identify the best models from that list.
+
+Execution of that process is found in the walk_through.ipynb file.
