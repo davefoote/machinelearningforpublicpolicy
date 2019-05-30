@@ -181,8 +181,8 @@ def define_clfs_params(grid_size):
     'NB' : {},
     'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1, 5, None],'min_samples_split': [2,5,10]},
     'SVM' :{'C' :[0.1],'kernel':['linear']},
-    'KNN' :{'n_neighbors': [10,50,100],'weights': ['uniform','distance'],'algorithm': ['auto', 'kd_tree']},
-    'BAG': {'n_estimators' : [5,10], 'max_samples' : [.25, .5] } 
+    'KNN' :{'n_neighbors': [10,50],'weights': ['uniform','distance'],'algorithm': ['auto']},
+    'BAG': {'n_estimators' : [5,10], 'max_samples' : [.25, .5] }
            }
     
     test_grid = { 
@@ -246,7 +246,7 @@ def model_analyzer(clfs, grid, plots, prec_limit, thresholds, x_train, y_train, 
                             m.plot_precision_recall(True, False, name + 'pr' + '.png')
                             m.plot_roc(True, False, name + 'pr')
                         counter += 1
-                    print(model.model)
+                    print(m.model)
                     models.append(m)
 
             except IndexError as e:
@@ -254,3 +254,27 @@ def model_analyzer(clfs, grid, plots, prec_limit, thresholds, x_train, y_train, 
                     continue
 
     return stats_dics, models
+
+def model_analyzer_over_time(clfs, grid, plots, prec_limit, thresholds,
+                             list_of_x_train, list_of_y_train, list_of_x_test,
+                             list_of_y_test, test_feats):
+    '''
+    iterate through a list of x train dataframes and make an aggregate list of
+    stats dics and models for each model in each timeframe. this list will be
+    used to determine the best possible model.
+    '''
+    big_stats_dics = []
+    big_models = []
+    temp_stats = []
+    temp_models = []
+    for i, x in enumerate(list_of_x_train):
+        temp_stats, temp_models = model_analyzer(clfs, grid, plots, prec_limit,
+                                                 thresholds, x.loc[:, test_feats],
+                                                 list_of_y_train[i],
+                                                 list_of_x_test[i].loc[:, test_feats],
+                                                 list_of_y_test[i])
+        big_stats_dics.extend(temp_stats)
+        big_models.extend(temp_models)
+
+    return big_stats_dics, big_models
+        
