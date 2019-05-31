@@ -1,8 +1,8 @@
+import model_analyzer as ma
 import numpy as np
 import pandas as pd
 import datetime
 import seaborn as sns
-import model_analyzer as ma
 from sklearn.dummy import DummyClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import (BaggingClassifier, AdaBoostClassifier,
@@ -40,7 +40,7 @@ def compare_tdelta_generate_binary(df, col_to_compare, threshold, new_col):
     binary values
     output: that dataseries now has a column for the binary values
     '''
-    df[new_col] = np.where(df[col_to_compare]<= pd.Timedelta(threshold), 1, 0)
+    df[new_col] = np.where(df[col_to_compare] >= pd.Timedelta(threshold), 1, 0)
 
 def id_potential_features(df):
     '''
@@ -59,9 +59,9 @@ def strings_to_dummies(df, strcols):
     turn the string columns we identified into dummies and generate a new
     df with these dummies to act as features
     '''
-    features = pd.get_dummies(df[strcols], dummy_na=True,
-                              columns=strcols, drop_first=True)
-    return features
+    temp = pd.get_dummies(df, dummy_na=True, columns=strcols)
+    df[list(temp.columns)] = temp
+
 
 def add_discretized_float_cols(og_df, feature_df, fltcols):
     '''
@@ -119,7 +119,7 @@ def temp_holdout(df, date_col, rolling_window, holdout):
 
     return trains, tests
 
-def seperate_ids_feats_ys(periods):
+def seperate_ids_feats_ys(periods, id_cols, y_col, feature_columns):
     '''
     takes a list of periods from temp_holdout() and returns a list of lists of
     each period's ids, features, and ys
@@ -127,11 +127,11 @@ def seperate_ids_feats_ys(periods):
     rv = []
 
     for x in periods:
-        rv.append([x.iloc[:, [-2, -3]], x.iloc[:, :-3], x.iloc[:, -1]])
+        rv.append([x[id_cols], x[feature_columns], x[y_col]])
         
     for x in rv:
         for df in x:
-            print(df.shape)
+            print(len(df.index))
 
     return rv
 
@@ -153,8 +153,8 @@ def define_clfs_params(grid_size):
         'NB': GaussianNB(),
         'DT': DecisionTreeClassifier(),
         'SGD': SGDClassifier(loss="log", penalty="l2"),
-        'KNN': KNeighborsClassifier(n_neighbors=3), 
-        'BAG': BaggingClassifier(DecisionTreeClassifier(), max_samples= 0.5, n_estimators = 20) 
+        'KNN': KNeighborsClassifier(n_neighbors=3),
+        'BAG': BaggingClassifier(DecisionTreeClassifier(), max_samples= 0.5, n_estimators = 20)
             }
 
     large_grid = { 
@@ -174,7 +174,7 @@ def define_clfs_params(grid_size):
     small_grid = { 
     'RF':{'n_estimators': [10,100], 'max_depth': [5,50], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
     'LR': { 'penalty': ['l1','l2'], 'C': [0.001,0.1,1], 'solver': ['liblinear']},
-    'SGD': { 'loss': ['log','perceptron'], 'penalty': ['l2','l1']},
+    'SGD': { 'loss': ['log','perceptron'], 'penalty': ['l2','l1'], 'max_iter':[1000], 'tol':[1]},
     'ET': { 'n_estimators': [10,100], 'criterion' : ['gini', 'entropy'] ,'max_depth': [5], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
     'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [10,100,500]},
     'GB': {'n_estimators': [10,100], 'learning_rate' : [0.5],'subsample' : [0.5,1.0], 'max_depth': [5]},
@@ -229,25 +229,22 @@ def model_analyzer(clfs, grid, plots, prec_limit, thresholds, x_train, y_train, 
     for klass, model in clfs.items():
         parameter_values = grid[klass]
         for p in ParameterGrid(parameter_values):
-            counter = 1
             try:
                 name = klass + str(p)
                 for thresh in thresholds:
                     m = ma.ClassifierAnalyzer(model, p, name, thresh, x_train, y_train,
                                               x_test, y_test)
                     stats = vars(m)
-                    stats['threshold'] = thresh
                     stats_dics.append(stats)
-                    if m.precision >= prec_limit and counter == 1:
-                        if plots == 'show':
-                            m.plot_precision_recall(False, True, name + 'pr' + '.png')
-                            m.plot_roc(False, True, name + 'roc')
-                        if plots == 'save':
-                            m.plot_precision_recall(True, False, name + 'pr' + '.png')
-                            m.plot_roc(True, False, name + 'pr')
-                        counter += 1
                     print(m.model)
                     models.append(m)
+                if m.precision >= prec_limit:
+                    if plots == 'show':
+                        m.plot_precision_recall(False, True, name + 'pr' + '.png')
+                        m.plot_roc(False, True, name + 'roc')
+                    elif plots == 'save':
+                        m.plot_precision_recall(True, False, name + 'pr' + '.png')
+                        m.plot_roc(True, False, name + 'pr')
 
             except IndexError as e:
                     print('Error:',e)

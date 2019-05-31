@@ -115,7 +115,7 @@ def compare_to_threshold(score, threshold):
     that represents threshold% of population, then compares each score to that
     adjusted threshold CORRECTED TO PREDICT 1 FOR THRESHOLD% CORRECTLY
     '''
-    if score > (1 - threshold):
+    if score > threshold:
         return 1
     else:
         return 0
